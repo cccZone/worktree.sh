@@ -2075,6 +2075,9 @@ project_registry_collect() {
     [ -f "$config_file" ] || continue
 
     repo_path=$(config_file_get_value "$config_file" "repo.path" 2> /dev/null || true)
+    if [ -n "$repo_path" ]; then
+      repo_path=$(canonical_path "$repo_path" 2> /dev/null || printf '%s\n' "$repo_path")
+    fi
     local branch_prefix
     branch_prefix=$(config_file_get_value "$config_file" "add.branch-prefix" 2> /dev/null || true)
     branch_prefix="$(normalize_branch_prefix_value "$branch_prefix")"
@@ -2609,11 +2612,11 @@ init_settings_apply_from_sources() {
 
   if value=$(config_get "repo.path" 2> /dev/null); then
     if [ -n "$value" ]; then
-      WORKING_REPO_PATH="$value"
+      WORKING_REPO_PATH=$(canonical_path "$value" 2> /dev/null || printf '%s\n' "$value")
       WORKING_REPO_PATH_CONFIGURED=1
     fi
   elif [ -n "$PROJECT_DETECTED_ROOT" ]; then
-    WORKING_REPO_PATH="$PROJECT_DETECTED_ROOT"
+    WORKING_REPO_PATH=$(canonical_path "$PROJECT_DETECTED_ROOT" 2> /dev/null || printf '%s\n' "$PROJECT_DETECTED_ROOT")
   fi
 
   if [ -n "$WORKING_REPO_PATH" ]; then
@@ -2865,7 +2868,8 @@ resolve_project() {
 
   PROJECT_DIR="$WORKING_REPO_PATH"
 
-  if ! PROJECT_DIR_ABS=$(cd "$PROJECT_DIR" 2> /dev/null && pwd -P); then
+  # Use canonical path to avoid case-only mismatches on case-insensitive FS.
+  if ! PROJECT_DIR_ABS=$(canonical_path "$PROJECT_DIR" 2> /dev/null); then
     if [ -n "$PROJECT_DETECTED_ROOT" ]; then
       PROJECT_DIR_ABS="$PROJECT_DETECTED_ROOT"
       PROJECT_DIR="$PROJECT_DIR_ABS"
