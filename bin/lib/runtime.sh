@@ -356,6 +356,24 @@ hash_prefix_six() {
   printf '%s\n' "${hash:0:6}"
 }
 
+canonical_path() {
+  if [ $# -ne 1 ]; then
+    return 1
+  fi
+
+  local path="$1"
+  if [ -z "$path" ]; then
+    return 1
+  fi
+
+  local resolved
+  if resolved=$(cd "$path" 2> /dev/null && /bin/pwd -P 2> /dev/null); then
+    printf '%s\n' "$resolved"
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
 sanitize_project_path_fragment() {
   if [ $# -ne 1 ]; then
     return 1
@@ -403,11 +421,16 @@ project_slug_for_path() {
     if [ -f "$config_file" ]; then
       existing_path=$(config_file_get_value "$config_file" "repo.path" 2> /dev/null || true)
     fi
-    if [ -n "$existing_path" ] && [ "$existing_path" != "$abs_path" ]; then
-      local hash
-      hash=$(hash_prefix_six "$abs_path") || hash=""
-      if [ -n "$hash" ]; then
-        slug="${slug}-${hash}"
+    if [ -n "$existing_path" ]; then
+      local existing_norm current_norm
+      existing_norm=$(canonical_path "$existing_path" 2> /dev/null || printf '%s\n' "$existing_path")
+      current_norm=$(canonical_path "$abs_path" 2> /dev/null || printf '%s\n' "$abs_path")
+      if [ "$existing_norm" != "$current_norm" ]; then
+        local hash
+        hash=$(hash_prefix_six "$abs_path") || hash=""
+        if [ -n "$hash" ]; then
+          slug="${slug}-${hash}"
+        fi
       fi
     fi
   fi
